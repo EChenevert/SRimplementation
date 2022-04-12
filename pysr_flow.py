@@ -47,7 +47,7 @@ df = pd.read_csv(r"D:\Etienne\crmsDATATables\community_specific_datasets\Freshwa
 # Identify the fundamental variables potentially contributing to accretion and/or surface elevation
 fun_vars = [
     "Simple site", "Soil Porewater Salinity (ppt)", "Soil Porewater Specific Conductance (uS/cm)", "Soil Porewater Temperature (Â°C)",
-    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio" #, "avg_percentflooded (%)"
+    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio", "avg_percentflooded (%)"
 ]
 
 # Append the sought outcome variable to the list
@@ -138,87 +138,17 @@ print("Good Features: ", good_features)
 X_train, X_test, y_train, y_test = train_test_split(dd.drop("Accretion Rate Shortterm", axis=1),
                                                     dd["Accretion Rate Shortterm"], test_size=.25, random_state=42)
 
-# input symbolic regression code
-est_gp = SymbolicRegressor(population_size=5000,
-                           n_jobs=-1,
-                           const_range=(-5, 5),
-                           # feature_names=feature_names,
-                           # init_depth=(4, 10),
-                           init_method='grow',
-                           function_set=('add', 'sub', 'mul', 'div', 'sin', 'cos', 'tan', 'log', 'abs', 'sqrt',
-                                         'inv', 'neg'),
-                           tournament_size=3,  # default value = 20
-                           generations=100,
-                           stopping_criteria=0.01,
-                           p_crossover=0.7,
-                           p_subtree_mutation=0.1,
-                           p_hoist_mutation=0.05,
-                           p_point_mutation=0.1,
-                           max_samples=0.9,
-                           verbose=1,
-                           parsimony_coefficient=0.001,
-                           random_state=0,
-                           metric='mse')
-est_gp.fit(X_train, y_train)
-y_pred = est_gp.predict(X_test)
 
-converter = {
-    'sub': lambda x, y: x - y,
-    'div': lambda x, y: x / y,
-    'mul': lambda x, y: x * y,
-    'add': lambda x, y: x + y,
-    'neg': lambda x: -x,
-    'pow': lambda x, y: x ** y,
-    'abs': lambda x: abs(x),
-    'sin': lambda x: sin(x),
-    'cos': lambda x: cos(x),
-    'tan': lambda x: tan(x),
-    'log': lambda x: log(x),
-    'inv': lambda x: 1 / x,
-    'sqrt': lambda x: x ** 0.5,
-    'pow3': lambda x: x ** 3
-}
-
-# print(est_gp._program)
-equation = sympify((est_gp._program), locals=converter)
-
-def regression_results(y_true, y_pred):
-
-    # Regression metrics
-    explained_variance = metrics.explained_variance_score(y_true, y_pred)
-    mean_absolute_error = metrics.mean_absolute_error(y_true, y_pred)
-    mse = metrics.mean_squared_error(y_true, y_pred)
-    median_absolute_error = metrics.median_absolute_error(y_true, y_pred)
-
-
-    print('explained_variance: ', round(explained_variance,4))
-    print('MAE: ', round(mean_absolute_error, 4))
-    print('MSE: ', round(mse, 4))
-    print('RMSE: ', round(np.sqrt(mse), 4))
-
-regression_results(y_test, y_pred)
-
-
-# sns.scatterplot(y_test, y_pred)
-# plt.show()
-fig, ax = plt.subplots()
-ax.scatter(y_test, y_pred)
-
-lims = [
-    np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
-    np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
-]
-
-plt.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
-ax.set_aspect('equal')  # can also be equal
-ax.set_xlim(lims)
-ax.set_ylim(lims)
-# ax.set_title(str(feature_names))
-fig.show()
-
-
-# .......................................................
-# Use the Baysian Symbolic Regression
-# code below is adapted from tutorial at: https://github.com/ying531/MCMC-SymReg
-
-
+from pysr import PySRRegressor
+model = PySRRegressor(
+    niterations=5,
+    binary_operators=["+", "*"],
+    unary_operators=[
+        "cos",
+        "exp",
+        "sin",
+        "inv(x) = 1/x",  # Custom operator (julia syntax)
+    ],
+    model_selection="best",
+    loss="loss(x, y) = (x - y)^2",  # Custom loss function (julia syntax)
+)
