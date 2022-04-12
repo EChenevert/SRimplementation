@@ -4,10 +4,15 @@
 # 3. Hyperparameter Tuning
 # 4. Model Metrics
 # 5. Summary
+from gplearn.genetic import SymbolicRegressor
 from joblib import dump, load # model persistence
 import pprint # Nice printing
 # I will attempt to adapt the Freshwater dataset
 # Load data
+from scipy.stats import boxcox
+from scipy.stats import yeojohnson
+from math import sin, cos, tan, log
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -16,9 +21,11 @@ from sklearn import metrics
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
+from sklearn.preprocessing import quantile_transform, MinMaxScaler
+from sympy import sympify
 
 import run
-
+# Handy function for nan filling
 def backward_fill_nans(df, column):
     """Function that forward fills nans but considers the site in which values are pulled from"""
     # for row in range(len(df[column])):
@@ -35,11 +42,12 @@ def backward_fill_nans(df, column):
 
     return df[column]
 
+# Grab the dataset
 df = pd.read_csv(r"D:\Etienne\crmsDATATables\community_specific_datasets\Freshwater.csv", encoding="unicode escape")
 # Identify the fundamental variables potentially contributing to accretion and/or surface elevation
 fun_vars = [
     "Simple site", "Soil Porewater Salinity (ppt)", "Soil Porewater Specific Conductance (uS/cm)", "Soil Porewater Temperature (Â°C)",
-    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio"
+    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio", "avg_percentflooded (%)"
 ]
 
 # Append the sought outcome variable to the list
@@ -49,9 +57,9 @@ fun_vars.append(outcome_var_str)
 # Extract the desired dataframe
 mdf = df[fun_vars]
 
-# Visualize dataframe with pairplot
-sns.pairplot(mdf)
-plt.show()
+# # Visualize dataframe with pairplot
+# sns.pairplot(mdf)
+# plt.show()
 
 # Transformations
 # dRop soil porewater salinity because of colinearity with soil porewater conductance
@@ -60,21 +68,55 @@ mdf = mdf.drop("Soil Porewater Salinity (ppt)", axis=1)
 mdf["Average Height Dominant (cm)"] = backward_fill_nans(mdf, "Average Height Dominant (cm)")
 # deal with outliers with the imputation method defined in run.py
 mdf = run.median_outlier_imputation(mdf.drop("Simple site", axis=1))
-# log the salinity perturbation ratio
+# # log the salinity perturbation ratio due to their distributions
 mdf['Salinity Perturbation Ratio'] = np.log(mdf['Salinity Perturbation Ratio'])
 mdf["Soil Porewater Specific Conductance (uS/cm)"] = np.log(mdf["Soil Porewater Specific Conductance (uS/cm)"])
 sns.pairplot(mdf)
 plt.show()
 
+# Avoided any other transformations right now to avoid data leakage
 
 # Drop rows with nans
 dd = mdf.dropna()
-# dd = dd.drop("Simple site", axis=1)
 
-# Recursive feature Elimination
-rf = RandomForestRegressor()
+# # Scale the data with a Min Max scalar
+# scaler = MinMaxScaler()
+# scaled_dd = scaler.fit_transform(dd.drop(['Accretion Rate Shortterm'], axis=1))
+# # Split the data into train test and split segments
+# X_train, X_test, y_train, y_test = train_test_split(scaled_dd,
+#                                                     dd['Accretion Rate Shortterm'], test_size=.25, train_size=.75)
+# column_values = dd.drop(['Accretion Rate Shortterm'], axis=1).columns.values
+# X_train = pd.DataFrame(data=X_train,
+#                   # index = index_values,
+#                   columns=column_values)
+# sns.pairplot(X_train)
+# plt.show()
+
+
+# Split the data into train test and split segments
 X_train, X_test, y_train, y_test = train_test_split(dd.drop(['Accretion Rate Shortterm'], axis=1),
                                                     dd['Accretion Rate Shortterm'], test_size=.25, train_size=.75)
+
+sns.pairplot(X_train)
+plt.show()
+
+# # .............................
+# # Transform the X_train data to normal distribution "make math easier"
+# # Yeo transform for the selected columns
+# for col in ["Average Height Dominant (cm)"]:
+#     X_train[col] = yeojohnson(X_train[col], 0)
+# sns.pairplot(X_train)
+# plt.show()
+#
+# for col in ["Soil Porewater Temperature (Â°C)"]:
+#     # X_train[col] = boxcox(X_train[col], 0)
+#     X_train[col] = quantile_transform(np.array(X_train[col]).reshape(-1, 1), n_quantiles=10, random_state=0, copy=True)
+# sns.pairplot(X_train)
+# plt.show()
+# # .......................................
+
+# Recursive feature Elimination to locate variable importances
+rf = RandomForestRegressor()
 
 rfe = RFE(estimator=rf, step=1) # instantiate Recursive Feature Eliminator
 rfe.fit(X_train, y_train) # fit our training data with the RFE algorithm
@@ -96,69 +138,50 @@ print("Good Features: ", good_features)
 X_train, X_test, y_train, y_test = train_test_split(dd.drop("Accretion Rate Shortterm", axis=1),
                                                     dd["Accretion Rate Shortterm"], test_size=.25, random_state=42)
 
-# Hyperparameter tuning
-n_estimators = [int(x) for x in np.linspace(start=200, stop=2000, num=10)]
-# Number of features to consider at every split
-max_features = ['auto', 'sqrt']
-# Maximum number of levels in tree
-max_depth = [int(x) for x in np.linspace(40, 110, num=11)]
-max_depth.append(None)
-# Minimum number of samples required to split a node
-min_samples_split = [2, 5, 10]
-# Minimum number of samples required at each leaf node
-min_samples_leaf = [1, 2, 4]
-# Method of selecting samples for training each tree
-bootstrap = [True, False]# Create the random grid
-random_grid = {'n_estimators': n_estimators,
-               'max_features': max_features,
-               'max_depth': max_depth,
-               'min_samples_split': min_samples_split,
-               'min_samples_leaf': min_samples_leaf,
-               'bootstrap': bootstrap}
-print("\n")
-pprint.pprint(random_grid)
+# input symbolic regression code
+est_gp = SymbolicRegressor(population_size=5000,
+                           n_jobs=-1,
+                           const_range=(-5, 5),
+                           # feature_names=feature_names,
+                           # init_depth=(4, 10),
+                           init_method='grow',
+                           function_set=('add', 'sub', 'mul', 'div', 'sin', 'cos', 'tan', 'log', 'abs', 'sqrt',
+                                         'inv', 'neg'),
+                           tournament_size=1,  # default value = 20
+                           generations=50,
+                           stopping_criteria=0.01,
+                           p_crossover=0.7,
+                           p_subtree_mutation=0.1,
+                           p_hoist_mutation=0.05,
+                           p_point_mutation=0.1,
+                           max_samples=0.9,
+                           verbose=1,
+                           parsimony_coefficient=0.001,
+                           random_state=0,
+                           metric='rmse')
+est_gp.fit(X_train, y_train)
+y_pred = est_gp.predict(X_test)
 
-# Use the random grid to search for best hyperparameters
-# First create the base model to tune
-rf = RandomForestRegressor()
-# Random search of parameters, using 3 fold cross validation,
-# search across 100 different combinations, and use all available cores
-rf_random = RandomizedSearchCV(estimator=rf, param_distributions=random_grid, n_iter=100, cv=3, verbose=3,
-                               random_state=42, n_jobs = -1, scoring='neg_mean_absolute_error')  #Fit the random search model
-rf_random.fit(X_train, y_train)
-pprint.pprint(rf_random.best_params_)
-
-# Plot number of features VS. cross-validation scores
-# Create a based model
-# ...............
-
-# grid search with cross validation
-param_grid = {
-    'bootstrap': [False],
-    'max_depth': [78, 80, 82, 84],
-    'max_features': [2, 4, 6],
-    'min_samples_leaf': [1, 2],
-    'min_samples_split': [4, 5, 6],
-    'n_estimators': [1400, 1600, 1800]
+converter = {
+    'sub': lambda x, y: x - y,
+    'div': lambda x, y: x / y,
+    'mul': lambda x, y: x * y,
+    'add': lambda x, y: x + y,
+    'neg': lambda x: -x,
+    'pow': lambda x, y: x ** y,
+    'abs': lambda x: abs(x),
+    'sin': lambda x: sin(x),
+    'cos': lambda x: cos(x),
+    'tan': lambda x: tan(x),
+    'log': lambda x: log(x),
+    'inv': lambda x: 1 / x,
+    'sqrt': lambda x: x ** 0.5,
+    'pow3': lambda x: x ** 3
 }
 
-rf_grid = RandomForestRegressor()  # Instantiate the grid search base model
-grid_search = GridSearchCV(estimator=rf_grid, param_grid=param_grid,
-                           cv=3, n_jobs=-1, verbose=3, scoring='neg_mean_absolute_error',
-                           refit=True)
-# Fit the grid search to the data
-grid_search.fit(X_train, y_train)
-best_grid = grid_search.best_estimator_
-y_pred = best_grid.predict(X_test)
-dump(best_grid, "D:\Etienne\crmsDATATables\ml_dump\RandForestGS_SSML.joblib")
+# print(est_gp._program)
+equation = sympify((est_gp._program), locals=converter)
 
-X = dd.drop(['Accretion Rate Shortterm'], axis=1)
-y = dd['Accretion Rate Shortterm']
-rf_tuned = load("D:\Etienne\crmsDATATables\ml_dump\RandForestGS_SSML.joblib")
-rf_tuned.fit(X, y)
-
-# model metrics
-# Helper Function: This prints out regression metrics.
 def regression_results(y_true, y_pred):
 
     # Regression metrics
@@ -173,9 +196,8 @@ def regression_results(y_true, y_pred):
     print('MSE: ', round(mse, 4))
     print('RMSE: ', round(np.sqrt(mse), 4))
 
-
-y_pred = rf_tuned.predict(X_test)
 regression_results(y_test, y_pred)
+
 
 # sns.scatterplot(y_test, y_pred)
 # plt.show()
@@ -195,7 +217,8 @@ ax.set_ylim(lims)
 fig.show()
 
 
-# TRansform the training data of water temperature with quantile transformer to make normal distribution
-
+# .......................................................
+# Use the Baysian Symbolic Regression
+# code below is adapted from tutorial at: https://github.com/ying531/MCMC-SymReg
 
 
