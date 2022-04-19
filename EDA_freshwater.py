@@ -177,7 +177,7 @@ est_gp = SymbolicRegressor(population_size=5000,
                            init_method='half and half',
                            function_set=('add', 'sub', 'mul', 'div', 'sin', 'cos', 'sqrt'),
                            tournament_size=3,  # default value = 20
-                           generations=50,
+                           generations=90,
                            stopping_criteria=0.01,
                            # p_crossover=,
                            # p_subtree_mutation=0.1,
@@ -194,6 +194,7 @@ sr_random = RandomizedSearchCV(estimator=est_gp, param_distributions=random_grid
 sr_random.fit(X_train, y_train)
 pprint.pprint(sr_random.best_params_)
 
+best_params = sr_random.best_params_
 
 # .................. Above this took a long time so do not re-run until later
 
@@ -201,11 +202,11 @@ pprint.pprint(sr_random.best_params_)
 from sklearn.model_selection import GridSearchCV
 # Create the parameter grid based on the results of random search
 param_grid = {
-    'p_crossover': [0.6, 0.67, 0.75, 0.82],
-    'p_subtree_mutation': [0.12, 0.19, 0.25],
-    'p_hoist_mutation': [0.15, 0.2083, 0.255],
-    'p_point_mutation': [-0.25, -0.167, -0.09, 0.01],
-    'parsimony_coefficient': [0.0005, 0.001]
+    'p_crossover': [0.4, 0.5, 0.6],
+    'p_subtree_mutation': [0.1, 0.133, 0.166],
+    'p_hoist_mutation': [0.14, 0.15, 0.16],
+    'p_point_mutation': [0.06, 0.08, 0.1],
+    'parsimony_coefficient': [0.0005]
 }
 # Create a based model
 est_gp_grid = SymbolicRegressor(population_size=5000,
