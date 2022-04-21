@@ -112,6 +112,22 @@ random_grid = {'p_crossover': pc,
 print("\n")
 pprint.pprint(random_grid)
 
+# Make custom functions to input into symbolic regressor function set
+from gplearn.functions import make_function
+def pow_3(x1):
+    f = x1**3
+    return f
+pow_3 = make_function(function=pow_3,name='pow3',arity=1)
+
+def pow_2(x1):
+    f = x1**2
+    return f
+pow_2 = make_function(function=pow_2,name='pow2',arity=1)
+
+
+# add the new function to the function_set
+function_set = ['add', 'sub', 'mul', 'div', pow_2, pow_3]
+
 # initialize symbolicregressor
 est_gp = SymbolicRegressor(population_size=5000,
                            n_jobs=-1,
@@ -119,7 +135,7 @@ est_gp = SymbolicRegressor(population_size=5000,
                            # feature_names=feature_names,
                            # init_depth=(4, 10),
                            init_method='half and half',
-                           function_set=('add', 'sub', 'mul', 'div', 'sin', 'cos', 'sqrt'),
+                           function_set=function_set,
                            tournament_size=3,  # default value = 20
                            generations=90,
                            stopping_criteria=0.01,
@@ -162,7 +178,7 @@ est_gp_grid = SymbolicRegressor(population_size=5000,
                            n_jobs=-1,
                            const_range=(-1, 1),
                            init_method='half and half',
-                           function_set=('add', 'sub', 'mul', 'div', 'sin', 'cos', 'sqrt'),
+                           function_set=function_set,
                            tournament_size=3,  # default value = 20
                            generations=20,
                            stopping_criteria=0.01,
@@ -174,12 +190,12 @@ grid_search = GridSearchCV(estimator=est_gp_grid, param_grid=param_grid,
 grid_search.fit(X_train, y_train)
 best_grid = grid_search.best_estimator_
 y_pred = best_grid.predict(X_test)
-dump(best_grid, "D:\Etienne\crmsDATATables\ml_dump\SRTunedGS_terrebonne_AA_SSML.joblib")
+dump(best_grid, "D:\Etienne\crmsDATATables\ml_dump\SRTunedGS_terrebonne_newfuncs_SSML.joblib")
 
 
 
 # ----------------------
-sr_tuned = load("D:\Etienne\crmsDATATables\ml_dump\SRTunedGS_terrebonne_AA_SSML.joblib")
+sr_tuned = load("D:\Etienne\crmsDATATables\ml_dump\SRTunedGS_terrebonne_newfuncs_SSML.joblib")
 sr_tuned.fit(X, y)
 
 # model metrics
@@ -228,15 +244,22 @@ converter = {
     'div': lambda x, y : x/y,
     'mul': lambda x, y : x*y,
     'add': lambda x, y : x + y,
-    'neg': lambda x    : -x,
-    'pow': lambda x, y : x**y,
-    'sin': lambda x    : sin(x),
-    'cos': lambda x    : cos(x),
-    'inv': lambda x: 1/x,
+    # 'neg': lambda x    : -x,
+    # 'pow': lambda x, y : x**y,
+    # 'sin': lambda x    : sin(x),
+    # 'cos': lambda x    : cos(x),
+    # 'inv': lambda x: 1/x,
     'sqrt': lambda x: x**0.5,
+    'pow2': lambda x: x**2,
     'pow3': lambda x: x**3
 }
 
 eq = sympify((sr_tuned._program), locals=converter)
+# Get best programs
+# best_programs = sr_tuned._best_programs
 
+
+# Ideas:
+# what about an exponential function ? np.exp(x)
+#
 
