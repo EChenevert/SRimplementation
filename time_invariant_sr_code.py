@@ -34,8 +34,8 @@ drop_vars = [
 dddf = ddf.drop(drop_vars, axis=1).dropna()
 
 # less variables is better for the genetic algo
-imp_vars = ['Dry Volume (cm3)',
-         'Soil Porewater Salinity (ppt)', 'Average Height Herb (cm)', 'avg_percentflooded (%)',
+imp_vars = [
+         'Average Height Herb (cm)', 'avg_percentflooded (%)',
          'Flood Depth (mm)', 'Distance from Water', 'Average Accretion (mm)']
 
 sr_df = dddf[imp_vars]
@@ -44,8 +44,8 @@ plt.show()
 
 # Transformations
 # log transforms
-sr_df['Distance from Water'] = [np.log(i) if i != 0 else 0 for i in sr_df['Distance from Water'] ]
-
+sr_df['Distance from Water'] = [np.log(i) if i != 0 else 0 for i in sr_df['Distance from Water']]
+sr_df['Flood Depth (mm)'] = [np.log(i) if i != 0 else 0 for i in sr_df['Flood Depth (mm)']]
 sns.pairplot(sr_df)
 plt.show()
 
@@ -59,12 +59,11 @@ for col in dmdf.columns.values:
     # dmdf[col+"_z"] = dmdf[col].apply(stats.zscore)
     dmdf[col+"_z"] = stats.zscore(dmdf[col])
 for col in dmdf.columns.values[7:]:
-    dmdf = dmdf[np.abs(dmdf[col]) < 3]  # keep if value is less than 3 std
+    dmdf = dmdf[np.abs(dmdf[col]) < 2]  # keep if value is less than 2 std
 
 # drop zscore columns
 dmdf = dmdf.drop([
-    'Dry Volume (cm3)_z',
-    'Soil Porewater Salinity (ppt)_z', 'Average Height Herb (cm)_z',
+    'Average Height Herb (cm)_z',
     'avg_percentflooded (%)_z', 'Flood Depth (mm)_z',
     'Distance from Water_z', 'Average Accretion (mm)_z'
 ], axis=1)
@@ -166,13 +165,11 @@ best_params = sr_random.best_params_
 # using what i learned from the random search to do a grid search with cross validation
 from sklearn.model_selection import GridSearchCV
 # Create the parameter grid based on the results of random search
-param_grid = {
-    'p_crossover': [0.6000000000000001],
-    'p_subtree_mutation': [0.15833333333333333],
-    'p_hoist_mutation': [0.0916666666666666],
-    'p_point_mutation': [0.04999999999999989],
-    'parsimony_coefficient': [0.001]
-}
+param_grid = {'p_crossover': [0.6250000000000001],
+ 'p_hoist_mutation': [0.07499999999999991],
+ 'p_point_mutation': [0.10833333333333328],
+ 'p_subtree_mutation': [0.06666666666666658],
+ 'parsimony_coefficient': [0.001]}
 # Create a based model
 est_gp_grid = SymbolicRegressor(population_size=5000,
                            n_jobs=-1,
