@@ -59,7 +59,7 @@ for col in dmdf.columns.values:
     # dmdf[col+"_z"] = dmdf[col].apply(stats.zscore)
     dmdf[col+"_z"] = stats.zscore(dmdf[col])
 for col in dmdf.columns.values[7:]:
-    dmdf = dmdf[np.abs(dmdf[col]) < 2]  # keep if value is less than 2 std
+    dmdf = dmdf[np.abs(dmdf[col]) < 3]  # keep if value is less than 2 std
 
 # drop zscore columns
 dmdf = dmdf.drop([
