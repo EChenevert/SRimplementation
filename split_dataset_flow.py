@@ -35,15 +35,16 @@ def backward_fill_nans(df, column):
 
     return df[column]
 
-df = pd.read_csv(r"D:\Etienne\crmsDATATables\community_specific_datasets\Freshwater.csv", encoding="unicode escape")
+df = pd.read_csv(r"D:\Etienne\crmsDATATables\basins_time_invariant\Terrebonne.csv", encoding="unicode escape")
 # Identify the fundamental variables potentially contributing to accretion and/or surface elevation
 fun_vars = [
-    "Simple site", "Soil Porewater Salinity (ppt)", "Soil Porewater Specific Conductance (uS/cm)", "Soil Porewater Temperature (Â°C)",
-    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio"
+    "Simple site", "Soil Porewater Salinity (ppt)", "Soil Porewater Specific Conductance (uS/cm)", 'Soil Porewater Temperature (Ã\x82Â°C)',
+    "Average Height Dominant (cm)", "Flood Depth (mm)", "Salinity Perturbation Ratio", "Distance from Water",
+    "avg_percentflooded (%)"
 ]
 
 # Append the sought outcome variable to the list
-outcome_var_str = "Accretion Rate Shortterm"
+outcome_var_str = "Average Accretion (mm)"
 fun_vars.append(outcome_var_str)
 
 # Extract the desired dataframe
@@ -73,8 +74,8 @@ dd = mdf.dropna()
 
 # Recursive feature Elimination
 rf = RandomForestRegressor()
-X_train, X_test, y_train, y_test = train_test_split(dd.drop(['Accretion Rate Shortterm'], axis=1),
-                                                    dd['Accretion Rate Shortterm'], test_size=.25, train_size=.75)
+X_train, X_test, y_train, y_test = train_test_split(dd.drop(['Average Accretion (mm)'], axis=1),
+                                                    dd['Average Accretion (mm)'], test_size=.25, train_size=.75)
 
 rfe = RFE(estimator=rf, step=1) # instantiate Recursive Feature Eliminator
 rfe.fit(X_train, y_train) # fit our training data with the RFE algorithm
@@ -93,8 +94,8 @@ good_features = list(vardf.Variable.values)
 print("\n")
 print("Good Features: ", good_features)
 #Compute new training and testing data only using the good features from RFE
-X_train, X_test, y_train, y_test = train_test_split(dd.drop("Accretion Rate Shortterm", axis=1),
-                                                    dd["Accretion Rate Shortterm"], test_size=.25, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(dd.drop("Average Accretion (mm)", axis=1),
+                                                    dd["Average Accretion (mm)"], test_size=.25, random_state=42)
 
 # Hyperparameter tuning
 n_estimators = [int(x) for x in np.linspace(start=200, stop=2000, num=10)]
@@ -128,19 +129,30 @@ rf_random = RandomizedSearchCV(estimator=rf, param_distributions=random_grid, n_
 rf_random.fit(X_train, y_train)
 pprint.pprint(rf_random.best_params_)
 
+
+
+
+
+
 # Plot number of features VS. cross-validation scores
 # Create a based model
 # ...............
 
 # grid search with cross validation
-param_grid = {
-    'bootstrap': [False],
-    'max_depth': [78, 80, 82, 84],
-    'max_features': [2, 4, 6],
-    'min_samples_leaf': [1, 2],
-    'min_samples_split': [4, 5, 6],
-    'n_estimators': [1400, 1600, 1800]
-}
+# param_grid = {
+#     'bootstrap': [False],
+#     'max_depth': [78, 80, 82, 84],
+#     'max_features': [2, 4, 6],
+#     'min_samples_leaf': [1, 2],
+#     'min_samples_split': [4, 5, 6],
+#     'n_estimators': [1400, 1600, 1800]
+# }
+param_grid = {'bootstrap': [True],
+ 'max_depth': [36, 38, 40, 42, 44],
+ # 'max_features': 'sqrt',
+ 'min_samples_leaf': [3, 4, 5],
+ 'min_samples_split': [1, 2, 3],
+ 'n_estimators': [390, 400, 410]}
 
 rf_grid = RandomForestRegressor()  # Instantiate the grid search base model
 grid_search = GridSearchCV(estimator=rf_grid, param_grid=param_grid,
@@ -150,11 +162,18 @@ grid_search = GridSearchCV(estimator=rf_grid, param_grid=param_grid,
 grid_search.fit(X_train, y_train)
 best_grid = grid_search.best_estimator_
 y_pred = best_grid.predict(X_test)
-dump(best_grid, "D:\Etienne\crmsDATATables\ml_dump\RandForestGS_SSML.joblib")
+dump(best_grid, "D:\Etienne\crmsDATATables\ml_dump\RandForestGS_terre_largeSSML.joblib")
 
-X = dd.drop(['Accretion Rate Shortterm'], axis=1)
-y = dd['Accretion Rate Shortterm']
-rf_tuned = load("D:\Etienne\crmsDATATables\ml_dump\RandForestGS_SSML.joblib")
+
+
+
+
+
+
+# ==================================================
+X = dd.drop(['Average Accretion (mm)'], axis=1)
+y = dd['Average Accretion (mm)']
+rf_tuned = load("D:\Etienne\crmsDATATables\ml_dump\RandForestGS_terre_largeSSML.joblib")
 rf_tuned.fit(X, y)
 
 # model metrics
@@ -191,6 +210,9 @@ plt.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
 ax.set_aspect('equal')  # can also be equal
 ax.set_xlim(lims)
 ax.set_ylim(lims)
+ax.set_title('Random Forest Model Prediction of Sediment Accretion in Terrebonne Basin')
+ax.set_ylabel('Observed Accretion (mm)')
+ax.set_xlabel('Predicted Accretion (mm)')
 # ax.set_title(str(feature_names))
 fig.show()
 

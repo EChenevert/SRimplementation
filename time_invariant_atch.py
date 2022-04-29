@@ -11,7 +11,7 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 
-df = pd.read_csv(r"D:\Etienne\crmsDATATables\basins_time_invariant\Atchafalaya.csv", encoding="unicode escape")
+df = pd.read_csv(r'D:\\Etienne\\crmsDATATables\\basins_time_invariant\\AtchMRDBasins.csv', encoding="unicode escape")
 # Drop columns that have more than 75 % nan values
 ddf = df.dropna(thresh=df.shape[0]*0.75, how='all', axis=1)
 
